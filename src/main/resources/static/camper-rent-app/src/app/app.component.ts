@@ -7,9 +7,9 @@ import { DataState } from './enum/data-state.enum';
 import {UserService} from "./service/user.service";
 import {catchError, map, startWith} from "rxjs/operators";
 import {NotificationService} from "./service/notification.service";
-import {User} from "./interface/user";
 import {CamperService} from "./service/camper.service";
 import {Camper} from "./interface/camper";
+import {User} from "./interface/user";
 
 @Component({
   selector: 'app-root',
@@ -19,9 +19,9 @@ import {Camper} from "./interface/camper";
 })
 export class AppComponent implements OnInit{
   public campers: Camper[] = [];
+  public users: User[] = [];
   appState$: Observable<AppState<CustomResponse>>;
   readonly DataState = DataState;
-  private filterSubject = new BehaviorSubject<string>('');
   private dataSubject = new BehaviorSubject<CustomResponse>(null);
   private isLoading = new BehaviorSubject<boolean>(false);
   isLoading$ = this.isLoading.asObservable();
@@ -33,6 +33,17 @@ export class AppComponent implements OnInit{
   }
 
 
+  /*public getCampers(): void {
+    this.camperService.getCampers().subscribe(
+      (response: Camper[]) => {
+        this.campers = response;
+      },
+      (error: HttpErrorResponse) => {
+        alert((error.message))
+      }
+    );
+  }*/
+
   private getCampers() {
     this.appState$ = this.camperService.campers$
       .pipe(
@@ -41,7 +52,7 @@ export class AppComponent implements OnInit{
           this.dataSubject.next(response);
           return {
             dataState: DataState.LOADED_STATE,
-            appData: {...response, data: {servers: response.data.campers.reverse()}}
+            appData: {...response, data: {campers: response.data.campers.reverse()}}
           }
         }),
         startWith({dataState: DataState.LOADING_STATE}),
@@ -109,6 +120,82 @@ export class AppComponent implements OnInit{
       );
   }
 
+  private getUsers() {
+    this.appState$ = this.userService.users$
+      .pipe(
+        map(response => {
+          this.notifier.onDefault(response.message);
+          this.dataSubject.next(response);
+          return {
+            dataState: DataState.LOADED_STATE,
+            appData: {...response, data: {users: response.data.users.reverse()}}
+          }
+        }),
+        startWith({dataState: DataState.LOADING_STATE}),
+        catchError((error: string) => {
+          this.notifier.onError(error);
+          return of({dataState: DataState.ERROR_STATE, error});
+        })
+      );
+  }
+
+  saveUser(userForm: NgForm): void {
+    this.isLoading.next(true);
+    this.appState$ = this.userService.save$(userForm.value as User)
+      .pipe(
+        map(response => {
+          this.dataSubject.next(
+            {...response, data: { campers: [response.data.camper, ...this.dataSubject.value.data.campers] } }
+          );
+          this.notifier.onDefault(response.message);
+          document.getElementById('closeModal').click();
+          this.isLoading.next(false);
+          userForm.resetForm();
+          return { dataState: DataState.LOADED_STATE, appData: this.dataSubject.value }
+        }),
+        startWith({ dataState: DataState.LOADED_STATE, appData: this.dataSubject.value }),
+        catchError((error: string) => {
+          this.isLoading.next(false);
+          this.notifier.onError(error);
+          return of({ dataState: DataState.ERROR_STATE, error });
+        })
+      );
+  }
+
+  public searchUsers(key: string): void {
+    console.log(key);
+    const results: User[] = [];
+    for (const user of this.users) {
+      if (user.firstName.toLowerCase().indexOf(key.toLowerCase()) !== -1 ||
+        user.lastName.toLowerCase().indexOf(key.toLowerCase()) !== -1) {
+        results.push(user);
+      }
+    }
+    this.users = results;
+    if (results.length === 0 || !key) {
+      this.getCampers();
+    }
+  }
+
+  deleteUser(user: User): void {
+    this.appState$ = this.userService.delete$(user.id)
+      .pipe(
+        map(response => {
+          this.dataSubject.next(
+            { ...response, data:
+                { users: this.dataSubject.value.data.users.filter(s => s.id !== user.id)} }
+          );
+          this.notifier.onDefault(response.message);
+          return { dataState: DataState.LOADED_STATE, appData: this.dataSubject.value }
+        }),
+        startWith({ dataState: DataState.LOADED_STATE, appData: this.dataSubject.value }),
+        catchError((error: string) => {
+          this.notifier.onError(error);
+          return of({ dataState: DataState.ERROR_STATE, error });
+        })
+      );
+  }
+
   printReport(): void {
     this.notifier.onDefault('Report downloaded');
     // window.print();
@@ -118,7 +205,7 @@ export class AppComponent implements OnInit{
     let downloadLink = document.createElement('a');
     document.body.appendChild(downloadLink);
     downloadLink.href = 'data:' + dataType + ', ' + tableHtml;
-    downloadLink.download = 'server-report.xls';
+    downloadLink.download = 'camper-report.xls';
     downloadLink.click();
     document.body.removeChild(downloadLink);
   }

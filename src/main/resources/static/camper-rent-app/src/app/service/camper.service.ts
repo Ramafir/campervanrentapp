@@ -15,8 +15,13 @@ export class CamperService {
 
   constructor(private http: HttpClient) { }
 
+ /* public getCampers(): Observable<Camper[]> {
+    return this.http.get<Camper[]>(`${this.apiUrl}/campers`)
+
+  }*/
+
   campers$ = <Observable<CustomResponse>>
-    this.http.get<CustomResponse>(`${this.apiUrl}/users`)
+    this.http.get<CustomResponse>(`${this.apiUrl}/campers`)
       .pipe(
         tap(console.log),
         catchError(this.handleError)

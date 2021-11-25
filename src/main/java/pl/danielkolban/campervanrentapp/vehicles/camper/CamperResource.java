@@ -20,12 +20,11 @@ public class CamperResource {
     }
 
     @GetMapping("")
-    public List<CamperDto> findAll(@RequestParam(required = false) String text) {
-        if(text != null)
-            return camperService.findAllByNameOrSerialNumber(text);
-        else
-            return camperService.findAll();
+    public ResponseEntity<List<CamperDto>> findAll(@RequestParam(required = false) String text) {
+        List<CamperDto> campers = camperService.findAll();
+        return new ResponseEntity<>(campers, HttpStatus.OK);
     }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<CamperDto> findById(@PathVariable Long id) {
